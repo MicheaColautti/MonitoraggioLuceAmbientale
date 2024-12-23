@@ -27,12 +27,16 @@
 | 13 dicembre 2024    | 17 gennaio 2025     |
 
 ## Sviluppatori
+- **Michea Colautti**
+- **Julian Cummaudo**
 - **Giada Galdiolo**
 - **Ambra Giuse Graziano**
 - **Roeld Hoxa**
-- **Julian Cummaudo**
-- **Michea Colautti**
+
+## Consegna
+Per maggiori dettagli sul progetto, consulta la consegna completa:  
+[Prog15 - Monitoraggio luce ambientale.pdf](./Documents/Prog15%20-%20Monitoraggio%20luce%20ambientale.pdf)
 
 ## Documentazione
-Per maggiori dettagli sul progetto, consulta la documentazione completa:  
+Per maggiori dettagli sul progetto, consulta la consegna completa:  
 [Prog15 - Monitoraggio luce ambientale.pdf](./Documents/Prog15%20-%20Monitoraggio%20luce%20ambientale.pdf)
