@@ -1,2 +1,7 @@
 **/.DS_Store
 **/Thumbs.db
+/src/Prog15.X/Prog15.X/.generated_files
+/src/Prog15.X/Prog15.X/build
+
+/src/Prog15.X/Prog15.X/dist
+/src/Prog15.X/Prog15.X/nbproject
