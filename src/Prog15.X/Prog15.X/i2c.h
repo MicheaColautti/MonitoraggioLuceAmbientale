@@ -1,30 +1,25 @@
-/*
- * Title: i2c lib CT header file
- * author: CTa
- * date: 01.12.2022
- *  
- */
+#ifndef I2C_H
+#define I2C_H
 
-#define SLAVE_ADDR  0x1D// 0b0011101 accelerometer
-#define MASTER_WRITE 0
-#define MASTER_READ 1
-
-extern     unsigned char out_x[2];
-extern     unsigned char out_y[2];
-extern     unsigned char out_z[2];
-extern int id;
-
-
-
-
+// Sets up I2C1 at ~100kHz, using RG2 as SCL1 and RG3 as SDA1 (Basys MX3 style).
 void i2c_master_setup(void);
-void i2c_master_start(void);
-void i2c_master_restart(void);
-void i2c_master_send(unsigned char byte);
-unsigned char i2c_master_recv(int ack);
-void i2c_master_ack(int val);
-void i2c_master_stop(void);
-void accelertometer_setup(void);
-void read_acc_id(void);
-void reac_acc_xyz(void);
 
+// Sends a START condition.
+void i2c_master_start(void);
+
+// Sends a RESTART condition.
+void i2c_master_restart(void);
+
+// Sends a byte (address or data).
+void i2c_master_send(unsigned char byte);
+
+// Receives one byte, then sends either ACK=0 or NACK=1.
+unsigned char i2c_master_recv(int ack);
+
+// Sends an ACK=0 or NACK=1 after receiving a byte.
+void i2c_master_ack(int val);
+
+// Sends a STOP condition.
+void i2c_master_stop(void);
+
+#endif

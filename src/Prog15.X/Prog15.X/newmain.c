@@ -66,12 +66,28 @@ void __attribute__((interrupt(ipl2), vector(_EXTERNAL_4_VECTOR))) ButtonInterrup
 
 int main(int argc, char** argv) {
     init_hardware();
+    /*Prova per leggere indirizzo sensore*/
     UART4_WriteString("Test UART avviata.\r\n");
+    uint8_t id = TSL2561_read_id();
+    char buff[32];
+    sprintf(buff, "TSL2561 ID: 0x%02X\r\n", id);
+    UART4_WriteString(buff);
     init_menu();
 
     while (1) {
         if (monitoring) {
+            UART4_WriteString("Prova");
+            //FIXME codice si blocca qui.
             int lux = (int)TSL2561_read_lux();
+   
+
+            // Convert theO integer lux value into a string
+            char buffer[32];
+            sprintf(buffer, "%d\r\n", lux);
+            UART4_WriteString(buffer);  // Now buffer is a proper string
+            
+            snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
+            UART4_WriteString(stringaSuLCD); // Se vuoi mostrare anche su UART
             last_lux = lux;
             update_leds(lux);
 
@@ -89,7 +105,7 @@ int main(int argc, char** argv) {
             cmdLCD(0x01); // Clear display
             cmdLCD(0x80); // Prima riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
-            putsLCD(stringaSuLCD);
+            UART4_WriteString(stringaSuLCD); // Se vuoi mostrare anche su UART
             cmdLCD(0xC0); // Seconda riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "LED accesi:%d", num_leds);
             putsLCD(stringaSuLCD);
@@ -110,8 +126,8 @@ void init_hardware() {
     initLCD();
     i2c_master_setup();
     TSL2561_init(); // Inizializza sensore di luce
-    UART_ConfigurePins();
     UART_ConfigureUart();
+    UART_ConfigurePins();
     initSPI1(); // Inizializza SPI per Flash
     
     // LED RGB Verde all?accensione

@@ -1,56 +1,135 @@
-#include "i2c.h"
 #include "TSL2561.h"
+#include "i2c.h" 
+#include "Uart.h"      // You must have an I2C library that provides i2c_master_* functions
+// You must have an I2C library that provides i2c_master_* functions
+#include <math.h>     // For powf()
+#include <stdint.h>
 
-// Indirizzo del sensore TSL2561
-#define TSL2561_ADDR 0x39
+// Optional: if you need a delay function (e.g. Delayms(500))
+extern void Delayms(unsigned int t);
 
-// Definizioni dei registri del TSL2561
-#define TSL2561_CMD 0xA0 // Comando per i registri
-#define TSL2561_REG_CONTROL 0x00 // Registro di controllo
-#define TSL2561_REG_TIMING 0x01 // Registro del timing
-#define TSL2561_REG_DATA0LOW 0x0C // Registro di dati, byte basso (dati LUX)
-#define TSL2561_REG_DATA0HIGH 0x0D // Registro di dati, byte alto (dati LUX)
+// -----------------------------------------------------------------------------
+// Adjust this address if your TSL2561 is at 0x29 or 0x49 instead of 0x39
+// -----------------------------------------------------------------------------
+#define TSL2561_ADDR 0x49
 
-// Comandi per il controllo del sensore
-#define TSL2561_POWER_ON 0x03  // Comando per accendere il sensore
-#define TSL2561_POWER_OFF 0x00 // Comando per spegnere il sensore
+// We use 0x80 for single-byte register commands
+#define TSL2561_CMD  0x80
 
-// Inizializzazione del sensore TSL2561
-void TSL2561_init(void) {
-    i2c_master_start();  
-    i2c_master_send(TSL2561_ADDR << 1); // Scrittura all'indirizzo del sensore
-    i2c_master_send(TSL2561_CMD | TSL2561_REG_CONTROL); // Seleziona il registro di controllo
-    i2c_master_send(TSL2561_POWER_ON);  // Accende il sensore
-    i2c_master_stop();  
+// TSL2561 Registers
+#define TSL2561_REG_CONTROL   0x00
+#define TSL2561_REG_TIMING    0x01
+#define TSL2561_REG_DATA0LOW  0x0C
+#define TSL2561_REG_DATA0HIGH 0x0D
+#define TSL2561_REG_DATA1LOW  0x0E
+#define TSL2561_REG_DATA1HIGH 0x0F
 
-    // Impostazione della durata di integrazione per la lettura dei dati
-    i2c_master_start();
-    i2c_master_send(TSL2561_ADDR << 1);  
-    i2c_master_send(TSL2561_CMD | TSL2561_REG_TIMING); // Seleziona il registro di timing
-    i2c_master_send(0x02);  // Imposta il tempo di integrazione, 402ms
-    i2c_master_stop();
-}
+// Power control values
+#define TSL2561_POWER_ON  0x03
+#define TSL2561_POWER_OFF 0x00
 
-// Funzione per leggere i dati LUX dal sensore
-uint16_t TSL2561_read_raw(void) {
+// -----------------------------------------------------------------------------
+// Low-level function to read a 16-bit channel (CH0 or CH1) from TSL2561
+// -----------------------------------------------------------------------------
+static uint16_t TSL2561_read_channel(uint8_t reg_low, uint8_t reg_high) {
     uint8_t low, high;
-    
-    // Avvia la comunicazione I2C per leggere i dati
-    i2c_master_start();
-    i2c_master_send(TSL2561_ADDR << 1);                     // Scrittura all'indirizzo del sensore
-    i2c_master_send(TSL2561_CMD | TSL2561_REG_DATA0LOW);    // Seleziona il registro di dati basso
-    i2c_master_restart();                                   // Riavvia la comunicazione per la lettura
-    i2c_master_send((TSL2561_ADDR << 1) | 1);               // Imposta l'indirizzo in lettura
-    low = i2c_master_recv(0);                               // Legge il byte basso dei dati
-    high = i2c_master_recv(1);                              // Legge il byte alto dei dati
-    i2c_master_stop();                                      // Termina la comunicazione
 
-    return (high << 8) | low;  // Combina i byte alto e basso
+    // Start I2C write
+    i2c_master_start();
+    i2c_master_send(TSL2561_ADDR << 1);
+    i2c_master_send(TSL2561_CMD | reg_low);
+    
+    // Restart to switch to read mode
+    i2c_master_restart();
+    i2c_master_send((TSL2561_ADDR << 1) | 1);
+
+    // Read two bytes
+    low  = i2c_master_recv(0);  // Read low byte, send ACK=0
+    high = i2c_master_recv(1);  // Read high byte, send NACK=1
+    i2c_master_stop();
+
+    return ((uint16_t)high << 8) | low;
 }
 
-// Funzione per convertire i dati grezzi in Lux
+// -----------------------------------------------------------------------------
+// Initialize TSL2561: Power on, set 402ms integration time, wait for stable data
+// -----------------------------------------------------------------------------
+void TSL2561_init(void) {
+    // Power ON
+    i2c_master_start();
+    i2c_master_send(TSL2561_ADDR << 1);
+    i2c_master_send(TSL2561_CMD | TSL2561_REG_CONTROL); // 0x80 + 0x00
+    i2c_master_send(TSL2561_POWER_ON);
+    i2c_master_stop();
+
+    // Give sensor time to power up
+    Delayms(200);
+
+    // Set integration time (0x02 => 402 ms)
+    i2c_master_start();
+    i2c_master_send(TSL2561_ADDR << 1);
+    i2c_master_send(TSL2561_CMD | TSL2561_REG_TIMING);  // 0x80 + 0x01
+    i2c_master_send(0x02);
+    i2c_master_stop();
+
+    // Wait at least one integration cycle before reading (402 ms)
+    Delayms(500);
+}
+
+// -----------------------------------------------------------------------------
+// Read raw channels CH0 and CH1, then convert to approximate LUX using formula
+// -----------------------------------------------------------------------------
 unsigned int TSL2561_read_lux(void) {
-    uint16_t raw_data = TSL2561_read_raw();
-    unsigned int lux = raw_data * 0.034; // Fattore di conversione approssimato (può variare)
-    return lux; 
+    UART4_WriteString("Prova1");
+
+    // Read raw data from sensor
+    uint16_t CH0 = TSL2561_read_channel(TSL2561_REG_DATA0LOW, TSL2561_REG_DATA0HIGH);
+    uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);
+    UART4_WriteString("Prova2");
+
+
+    // If CH0 is 0 or either channel is 0xFFFF => sensor saturates or not ready
+    if (CH0 == 0 || CH0 == 0xFFFF || CH1 == 0xFFFF) {
+        return 0;
+    }
+
+    // Calculate ratio CH1/CH0
+    float ratio = (float)CH1 / (float)CH0;
+    float lux   = 0.0f;
+
+    // Approximation of TSL2561 formula for full-spectrum sensor
+    if (ratio <= 0.5f) {
+        lux = 0.0304f * CH0 - 0.062f * CH0 * powf(ratio, 1.4f);
+    } else if (ratio <= 0.61f) {
+        lux = 0.0224f * CH0 - 0.031f * CH1;
+    } else if (ratio <= 0.80f) {
+        lux = 0.0128f * CH0 - 0.0153f * CH1;
+    } else if (ratio <= 1.30f) {
+        lux = 0.00146f * CH0 - 0.00112f * CH1;
+    } else {
+        lux = 0.0f;
+    }
+
+    // Avoid negative results
+    if (lux < 0.0f) {
+        lux = 0.0f;
+    }
+
+    return (unsigned int)lux;
+}
+
+#define TSL2561_REG_ID 0x0A
+
+uint8_t TSL2561_read_id(void){
+    uint8_t id = 0;
+
+    i2c_master_start();
+    i2c_master_send(TSL2561_ADDR << 1);             // write
+    i2c_master_send(TSL2561_CMD | TSL2561_REG_ID);  // 0x80 + 0x0A
+    i2c_master_restart();
+    i2c_master_send((TSL2561_ADDR << 1) | 1);       // read
+    id = i2c_master_recv(1); // Leggo 1 byte, NACK dopo
+    i2c_master_stop();
+
+    return id;
 }
