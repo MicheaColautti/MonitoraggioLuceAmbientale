@@ -59,11 +59,11 @@ void BTNC_Interrupt_Init(void);*/
 
 // Interrupt INT4, salva ultimo lux su flash e ferma monitoraggio
 void __attribute__((vector(_EXTERNAL_4_VECTOR),ipl1)) ButtonInterrupt(void) {
-    UART4_WriteString("Interrupt Attivato\r\n");  // Debug per verificare se l'interrupt ? attivo
     
     // Gestisci il salvataggio dei dati o l'operazione desiderata
     if (monitoring) {
         // Salva solo un byte (LUX limitato a 0-255)
+        //writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
         writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
         stop_monitoring();
     }

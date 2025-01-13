@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <p32xxxx.h>
 #include "Uart.h"
+#include "Timer.h"
 
 /*
  * 
@@ -88,5 +89,4 @@ void UART4_ReadString(char* buffer, int maxLength) {
     }
     buffer[i] = '\0';  // Termina la stringa
 }
-
 
