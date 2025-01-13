@@ -83,6 +83,7 @@ unsigned int TSL2561_read_lux(void) {
 
     // If CH0 is 0 or either channel is 0xFFFF => sensor saturates or not ready
     if (CH0 == 0 || CH0 == 0xFFFF || CH1 == 0xFFFF) {
+        UART4_WriteString("Sensore NON VA\r\n");
         return 0;
     }
 
@@ -107,6 +108,9 @@ unsigned int TSL2561_read_lux(void) {
     if (lux < 0.0f) {
         lux = 0.0f;
     }
+    char stringa[16]; 
+    snprintf(stringa, sizeof(stringaSuLCD), "Light:%d LUX", lux);
+    UART4_WriteString(lux);
 
     return (unsigned int)lux;
 }
