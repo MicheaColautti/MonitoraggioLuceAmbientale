@@ -4,11 +4,16 @@
 // You must have an I2C library that provides i2c_master_* functions
 #include <math.h>     // For powf()
 #include <stdint.h>
+#include <stdio.h>    // For snprintf()
+
 
 // Optional: if you need a delay function (e.g. Delayms(500))
 extern void Delayms(unsigned int t);
 
 #define TSL2561_ADDR 0x39
+
+#define char stringa[16]; 
+
 
 // We use 0x80 for single-byte register commands
 #define TSL2561_CMD  0x80
@@ -77,21 +82,18 @@ void TSL2561_init(void) {
 // Read raw channels CH0 and CH1, then convert to approximate LUX using formula
 // -----------------------------------------------------------------------------
 unsigned int TSL2561_read_lux(void) {
-    // Read raw data from sensor
     uint16_t CH0 = TSL2561_read_channel(TSL2561_REG_DATA0LOW, TSL2561_REG_DATA0HIGH);
     uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);
 
-    // If CH0 is 0 or either channel is 0xFFFF => sensor saturates or not ready
+    // Se CH0 == 0 oppure saturazione, stampo e ritorno 0
     if (CH0 == 0 || CH0 == 0xFFFF || CH1 == 0xFFFF) {
         UART4_WriteString("Sensore NON VA\r\n");
         return 0;
     }
 
-    // Calculate ratio CH1/CH0
     float ratio = (float)CH1 / (float)CH0;
     float lux   = 0.0f;
 
-    // Approximation of TSL2561 formula for full-spectrum sensor
     if (ratio <= 0.5f) {
         lux = 0.0304f * CH0 - 0.062f * CH0 * powf(ratio, 1.4f);
     } else if (ratio <= 0.61f) {
@@ -103,17 +105,18 @@ unsigned int TSL2561_read_lux(void) {
     } else {
         lux = 0.0f;
     }
-
-    // Avoid negative results
     if (lux < 0.0f) {
         lux = 0.0f;
     }
-    char stringa[16]; 
-    snprintf(stringa, sizeof(stringaSuLCD), "Light:%d LUX", lux);
-    UART4_WriteString(lux);
+
+    // Stampo su UART
+    static char strbuf[32];
+    snprintf(strbuf, sizeof(strbuf), "Light: %u LUX\r\n", (unsigned int)lux);
+    UART4_WriteString(strbuf);
 
     return (unsigned int)lux;
 }
+
 
 #define TSL2561_REG_ID 0x0A
 
