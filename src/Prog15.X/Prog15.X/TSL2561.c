@@ -8,10 +8,7 @@
 // Optional: if you need a delay function (e.g. Delayms(500))
 extern void Delayms(unsigned int t);
 
-// -----------------------------------------------------------------------------
-// Adjust this address if your TSL2561 is at 0x29 or 0x49 instead of 0x39
-// -----------------------------------------------------------------------------
-#define TSL2561_ADDR 0x49
+#define TSL2561_ADDR 0x39
 
 // We use 0x80 for single-byte register commands
 #define TSL2561_CMD  0x80
@@ -122,7 +119,6 @@ unsigned int TSL2561_read_lux(void) {
 
 uint8_t TSL2561_read_id(void){
     uint8_t id = 0;
-
     i2c_master_start();
     i2c_master_send(TSL2561_ADDR << 1);             // write
     i2c_master_send(TSL2561_CMD | TSL2561_REG_ID);  // 0x80 + 0x0A

@@ -21,12 +21,8 @@ int id;
 
 void i2c_master_setup(void) 
 {
-    // no need pin mapping
-//    // SCL1 pin setup
-//    TRISGbits.TRISG2 = 0; // as digital output
-//    
-//    // SDA1 pin setup
-//    TRISGbits.TRISG3 = 0; // as digital output
+    TRISGbits.TRISG2 = 1; // SCL
+    TRISGbits.TRISG3 = 1; // SDA
     
     I2C1CON = 0x0000; // use default settings for I2C
     I2C1BRG = 186; // I2CBRG = [1/(2*Fsck) - PGD]*Pblck - 2
@@ -59,24 +55,10 @@ void i2c_master_send(unsigned char byte)
 
 unsigned char i2c_master_recv(int ack) 
 { 
-   UART4_WriteString("Culo 6.1\r\n");
-
     I2C1CONbits.RCEN = 1;              // Abilita la ricezione
-    
-   UART4_WriteString("Culo 6.2\r\n");
-
     while (!I2C1STATbits.RBF) { ;}    // Attendi che i dati siano ricevuti
-       
-    UART4_WriteString("Culo 6.3\r\n");
-
     unsigned char data = I2C1RCV;      // Leggi i dati
-   
-    UART4_WriteString("Culo 6.4\r\n");
-
     i2c_master_ack(ack);               // Invia ACK o NACK
-   
-    UART4_WriteString("Culo 6.5\r\n");
-
     return data;
 }
 
