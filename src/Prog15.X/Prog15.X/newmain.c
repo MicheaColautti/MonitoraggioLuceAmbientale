@@ -33,7 +33,7 @@
 // Numero di LED sulla porta A
 #define NUM_LEDS 8
 
-// Soglie LUX (dal più luminoso al più buio)
+// Soglie LUX (dal pi? luminoso al pi? buio)
 // Queste soglie sono un esempio, si possono regolare in base alle esigenze.
 static const int thresholds[NUM_LEDS] = {7000, 6000, 5000, 4000, 3000, 2000, 1000, 500};
 
@@ -45,7 +45,7 @@ volatile int monitoring = 0;        // Flag monitoraggio attivo
 
 char stringaSuLCD[16]; // Buffer per scritte su LCD
 
-// Prototipi funzioni
+/*// Prototipi funzioni
 void init_hardware(void);
 void init_menu(void);
 void start_monitoring(void);
@@ -54,40 +54,32 @@ void display_last_detection(void);
 void reset_last_detection(void);
 void update_leds(int lux);
 void beep(void);
-void BTNC_Interrupt_Init(void);
+void BTNC_Interrupt_Init(void);*/
+
 
 // Interrupt INT4, salva ultimo lux su flash e ferma monitoraggio
-void __attribute__((interrupt(ipl2), vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
-    IFS0bits.INT4IF = 0;
-    // Salva solo un byte (LUX limitato a 0-255)
-    writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
-    stop_monitoring();
+void __attribute__((vector(_EXTERNAL_4_VECTOR),ipl1)) ButtonInterrupt(void) {
+    UART4_WriteString("Interrupt Attivato\r\n");  // Debug per verificare se l'interrupt ? attivo
+    
+    // Gestisci il salvataggio dei dati o l'operazione desiderata
+    if (monitoring) {
+        // Salva solo un byte (LUX limitato a 0-255)
+        writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
+        stop_monitoring();
+    }
+    IFS0bits.INT4IF = 0;  // Pulisce il flag dell'interrupt
 }
 
 int main(int argc, char** argv) {
     init_hardware();
-    /*Prova per leggere indirizzo sensore*/
     UART4_WriteString("Test UART avviata.\r\n");
-    uint8_t id = TSL2561_read_id();
-    char buff[32];
-    sprintf(buff, "TSL2561 ID: 0x%02X\r\n", id);
-    UART4_WriteString(buff);
     init_menu();
 
+    
     while (1) {
+        //if monitoring = 0 
         if (monitoring) {
-            UART4_WriteString("Prova");
-            //FIXME codice si blocca qui.
             int lux = (int)TSL2561_read_lux();
-   
-
-            // Convert theO integer lux value into a string
-            char buffer[32];
-            sprintf(buffer, "%d\r\n", lux);
-            UART4_WriteString(buffer);  // Now buffer is a proper string
-            
-            snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
-            UART4_WriteString(stringaSuLCD); // Se vuoi mostrare anche su UART
             last_lux = lux;
             update_leds(lux);
 
@@ -105,12 +97,13 @@ int main(int argc, char** argv) {
             cmdLCD(0x01); // Clear display
             cmdLCD(0x80); // Prima riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
-            UART4_WriteString(stringaSuLCD); // Se vuoi mostrare anche su UART
+            putsLCD(stringaSuLCD);
             cmdLCD(0xC0); // Seconda riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "LED accesi:%d", num_leds);
             putsLCD(stringaSuLCD);
 
             Delayms(500);
+            
         }
     }
     return 0;
@@ -119,8 +112,8 @@ int main(int argc, char** argv) {
 // Inizializzazione hardware
 void init_hardware() {
     Timer2_init();
-    BTNC_Interrupt_Init();
     Init_pins();
+    BTNC_Interrupt_Init();
     audio_init(); 
     init_ADC();
     initLCD();
@@ -135,6 +128,8 @@ void init_hardware() {
     LED_RGB_GREEN = 1;
     LED_RGB_BLUE = 0;
 }
+
+
 
 // Menu iniziale su UART
 void init_menu(void) {
@@ -189,16 +184,16 @@ void reset_last_detection(void) {
     EraseFlash();
     UART4_WriteString("Ultima detezione resettata.\r\n");
     
-    //debugging - verifica cancellazione dei dati 
+    // Debugging - verifica cancellazione dei dati 
     for (int i = 0; i < 10; i++) {
-    int value = readFlashMem(i); // Legge i primi 10 indirizzi
-    char buffer[50];
-    sprintf(buffer, "Address %d: %d\r\n", i, value);
-    UART4_WriteString(buffer);
-}
+        int value = readFlashMem(i); // Legge i primi 10 indirizzi
+        char buffer[50];
+        sprintf(buffer, "Address %d: %d\r\n", i, value);
+        UART4_WriteString(buffer);
+    }
 }
 
-// Gestione dei LED in base alla luminosità
+// Gestione dei LED in base alla luminosit?
 void update_leds(int lux) {
     int num_leds = 0;
     for (int i = 0; i < NUM_LEDS; i++) {
@@ -222,11 +217,17 @@ void beep(){
     Delayms(1000);
     OC1CONbits.ON = 0; 
 }
-
 void BTNC_Interrupt_Init(void) {
-    INTCONbits.INT4EP = 0;    // fronte di salita (o discesa in base alle necessità)
-    IPC4bits.INT4IP = 2;   
-    IPC4bits.INT4IS = 0;   
-    IFS0bits.INT4IF = 0;   
-    IEC0bits.INT4IE = 1;   
+    INT4R = 0x4;
+    __builtin_disable_interrupts();    
+    INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
+
+    // Configura priorit? e flag dell'interrupt
+    IPC4bits.INT4IP = 1;    // Imposta priorit? alta
+    IPC4bits.INT4IS = 0;     // EXT0 sub-priority 0
+    IFS0bits.INT4IF = 0;    // Pulisce il flag dell'interrupt
+    
+    IEC0bits.INT4IE = 1;    // Abilita l'interrupt INT4
+
+    __builtin_enable_interrupts();  // Abilita gli interrupt globali
 }
