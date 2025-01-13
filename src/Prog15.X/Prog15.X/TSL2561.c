@@ -12,9 +12,6 @@ extern void Delayms(unsigned int t);
 
 #define TSL2561_ADDR 0x39
 
-#define char stringa[16]; 
-
-
 // We use 0x80 for single-byte register commands
 #define TSL2561_CMD  0x80
 
@@ -111,9 +108,8 @@ unsigned int TSL2561_read_lux(void) {
 
     // Stampo su UART
     static char strbuf[32];
-    snprintf(strbuf, sizeof(strbuf), "Light: %u LUX\r\n", (unsigned int)lux);
+    snprintf(strbuf, sizeof(strbuf), "Light:%u LUX\r\n", (unsigned int)lux);
     UART4_WriteString(strbuf);
-
     return (unsigned int)lux;
 }
 
