@@ -73,6 +73,12 @@ void __attribute__((vector(_EXTERNAL_4_VECTOR),ipl1)) ButtonInterrupt(void) {
 int main(int argc, char** argv) {
     init_hardware();
     UART4_WriteString("Test UART avviata.\r\n");
+
+    uint8_t id = TSL2561_read_id();
+    char buff[32];
+    sprintf(buff, "TSL2561 ID: 0x%02X\r\n", id);
+    UART4_WriteString(buff);
+    
     init_menu();
 
     

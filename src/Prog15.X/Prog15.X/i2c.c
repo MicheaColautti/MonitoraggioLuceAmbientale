@@ -56,14 +56,30 @@ void i2c_master_send(unsigned char byte)
     }
 }
 
+
 unsigned char i2c_master_recv(int ack) 
 { 
+   UART4_WriteString("Culo 6.1\r\n");
+
     I2C1CONbits.RCEN = 1;              // Abilita la ricezione
-    while (!I2C1STATbits.RBF) { ; }    // Attendi che i dati siano ricevuti
+    
+   UART4_WriteString("Culo 6.2\r\n");
+
+    while (!I2C1STATbits.RBF) { ;}    // Attendi che i dati siano ricevuti
+       
+    UART4_WriteString("Culo 6.3\r\n");
+
     unsigned char data = I2C1RCV;      // Leggi i dati
+   
+    UART4_WriteString("Culo 6.4\r\n");
+
     i2c_master_ack(ack);               // Invia ACK o NACK
+   
+    UART4_WriteString("Culo 6.5\r\n");
+
     return data;
 }
+
 
 void i2c_master_ack(int val) 
 { // sends ACK = 0 (slave should send another byte)
