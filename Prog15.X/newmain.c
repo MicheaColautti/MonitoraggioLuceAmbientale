@@ -221,7 +221,6 @@ void BTNC_Interrupt_Init(void) {
     INT4R = 0x4;
     __builtin_disable_interrupts();    
     INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
-//
 
     // Configura priorità e flag dell'interrupt
     IPC4bits.INT4IP = 1;    // Imposta priorità alta
