@@ -73,17 +73,6 @@ void __attribute__((vector(_EXTERNAL_4_VECTOR),ipl1)) ButtonInterrupt(void) {
 int main(int argc, char** argv) {
     init_hardware();
     UART4_WriteString("Test UART avviata.\r\n");
-    for (int addr = 0; addr < 128; addr++) {
-            i2c_master_start();
-            i2c_master_send(addr << 1); // write
-            i2c_master_stop();
-            if (I2C1STATbits.ACKSTAT == 0) {
-                // sign that the device ACKed
-                char buf[50];
-                sprintf(buf, "Device at 0x%02X\r\n", addr);
-                UART4_WriteString(buf);
-            }
-        }
 
     uint8_t id = TSL2561_read_id();
     char buff[32];

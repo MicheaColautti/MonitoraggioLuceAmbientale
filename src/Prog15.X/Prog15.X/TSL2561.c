@@ -77,13 +77,9 @@ void TSL2561_init(void) {
 // Read raw channels CH0 and CH1, then convert to approximate LUX using formula
 // -----------------------------------------------------------------------------
 unsigned int TSL2561_read_lux(void) {
-    UART4_WriteString("Prova1");
-
     // Read raw data from sensor
     uint16_t CH0 = TSL2561_read_channel(TSL2561_REG_DATA0LOW, TSL2561_REG_DATA0HIGH);
     uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);
-    UART4_WriteString("Prova2");
-
 
     // If CH0 is 0 or either channel is 0xFFFF => sensor saturates or not ready
     if (CH0 == 0 || CH0 == 0xFFFF || CH1 == 0xFFFF) {
@@ -118,13 +114,17 @@ unsigned int TSL2561_read_lux(void) {
 #define TSL2561_REG_ID 0x0A
 
 uint8_t TSL2561_read_id(void){
+
     uint8_t id = 0;
     i2c_master_start();
-    i2c_master_send(TSL2561_ADDR << 1);             // write
-    i2c_master_send(TSL2561_CMD | TSL2561_REG_ID);  // 0x80 + 0x0A
+    i2c_master_send(TSL2561_ADDR << 1);
+    i2c_master_send(TSL2561_CMD | TSL2561_REG_ID);
+    
+
     i2c_master_restart();
-    i2c_master_send((TSL2561_ADDR << 1) | 1);       // read
+    i2c_master_send((TSL2561_ADDR << 1) | 1);// read
     id = i2c_master_recv(1); // Leggo 1 byte, NACK dopo
+
     i2c_master_stop();
 
     return id;
