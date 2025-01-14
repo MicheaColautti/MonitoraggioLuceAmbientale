@@ -25,5 +25,6 @@ uint16_t TSL2561_read_raw(void);
 
 // Funzione per leggere il valore luminoso in Lux
 unsigned int TSL2561_read_lux(void);
+uint8_t TSL2561_read_id(void);  // Aggiungi il prototipo della funzione
 
 #endif // TSL2561_H

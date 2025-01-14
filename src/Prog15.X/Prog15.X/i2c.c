@@ -8,6 +8,7 @@
 #include <p32xxxx.h>
 #include "i2c.h"
 #include "Timer.h"
+#include <stdio.h>
 
 unsigned char out_x[2];  // definizione della variabile
 unsigned char out_y[2];  // definizione della variabile
@@ -77,3 +78,19 @@ void i2c_master_stop(void)
     I2C1CONbits.PEN = 1; // comm is complete and master relinquishes bus
     while(I2C1CONbits.PEN) { ; } // wait for STOP to complete
 }
+
+void i2c_debug_send(uint8_t byte) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "I2C Send: 0x%02X\r\n", byte);
+    UART4_WriteString(buffer);
+}
+
+uint8_t i2c_debug_recv(void) {
+    uint8_t data = i2c_master_recv(1); // Ricevi un byte
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "I2C Recv: 0x%02X\r\n", data);
+    UART4_WriteString(buffer);
+    return data;
+}
+
+

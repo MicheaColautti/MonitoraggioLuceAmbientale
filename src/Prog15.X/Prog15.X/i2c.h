@@ -27,4 +27,6 @@ void i2c_master_stop(void);
 void accelertometer_setup(void);
 void read_acc_id(void);
 void reac_acc_xyz(void);
+void i2c_debug_send(uint8_t byte);
+uint8_t i2c_debug_recv(void);
 

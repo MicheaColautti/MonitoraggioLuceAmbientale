@@ -119,13 +119,13 @@ void init_hardware() {
     Timer2_init();
     Init_pins();
     BTNC_Interrupt_Init();
+    UART_ConfigurePins();
+    UART_ConfigureUart();
     audio_init(); 
     init_ADC();
     initLCD();
     i2c_master_setup();
     TSL2561_init(); // Inizializza sensore di luce
-    UART_ConfigureUart();
-    UART_ConfigurePins();
     initSPI1(); // Inizializza SPI per Flash
     
     // LED RGB Verde all?accensione
