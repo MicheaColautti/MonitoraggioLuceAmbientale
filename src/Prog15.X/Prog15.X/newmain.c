@@ -208,6 +208,7 @@ void beep(){
 }
 
 void BTNC_Interrupt_Init(void) {
+    INT4 = 0x04;
     INTCONbits.INT4EP = 0;    // fronte di salita (o discesa in base alle necessità)
     IPC4bits.INT4IP = 2;   
     IPC4bits.INT4IS = 0;   
