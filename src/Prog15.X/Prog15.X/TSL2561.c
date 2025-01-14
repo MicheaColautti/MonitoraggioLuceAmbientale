@@ -4,6 +4,7 @@
 #include <math.h>  // Per la funzione powf()
 #include <stdint.h>
 #include <stdio.h> // Per la funzione snprintf()
+#include "Timer.h"
 
 // Optional: se hai bisogno di una funzione di delay (es. Delayms(500))
 extern void Delayms(unsigned int t);
@@ -70,7 +71,7 @@ void TSL2561_init(void) {
     i2c_master_start();
     i2c_master_send(TSL2561_ADDR << 1);
     i2c_master_send(TSL2561_CMD | TSL2561_REG_TIMING);  // Registro di timing
-    i2c_master_send(0x02);  // Imposta 402 ms di integrazione
+    i2c_master_send(0x11);  // Imposta 402 ms di integrazione
     i2c_master_stop();
 
     // Attendi il completamento dell'integrazione
@@ -101,16 +102,32 @@ uint8_t TSL2561_read_id(void) {
 // Funzione per leggere i dati di luce (lux) dal sensore
 unsigned int TSL2561_read_lux(void) {
     uint16_t CH0 = TSL2561_read_channel(TSL2561_REG_DATA0LOW, TSL2561_REG_DATA0HIGH);  // Canale 0
-    uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);  // Canale 1
-
-    // Se i valori sono invalidi, stampa un messaggio e ritorna 0
-    if (CH0 == 0 || CH0 == 0xFFFF || CH1 == 0xFFFF) {
-        UART4_WriteString("Sensore NON VA\r\n");
+    uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);// Canale 1
+    
+    if (CH0 == 0xFFFF || CH1 == 0xFFFF || CH0 > 65535 || CH1 > 65535) {
+        UART4_WriteString("Sensore saturato o errore nella lettura.\r\n");
         return 0;
     }
 
+
+    // DEBUG: Stampa i valori di CH0 e CH1
+    UART4_WriteString("CH0: ");
+    static char strbuf[32];
+    snprintf(strbuf, sizeof(strbuf), "%u\r\n", CH0);
+    UART4_WriteString(strbuf);
+
+    UART4_WriteString("CH1: ");
+    snprintf(strbuf, sizeof(strbuf), "%u\r\n", CH1);
+    UART4_WriteString(strbuf);
+
     // Calcola il rapporto tra i canali e determina il valore di lux
     float ratio = (float)CH1 / (float)CH0;
+    
+    // DEBUG: Stampa il rapporto tra i canali
+    UART4_WriteString("Ratio: ");
+    snprintf(strbuf, sizeof(strbuf), "%f\r\n", ratio);
+    UART4_WriteString(strbuf);
+
     float lux = 0.0f;
 
     // Calcolo dei lux in base al rapporto
@@ -132,9 +149,11 @@ unsigned int TSL2561_read_lux(void) {
     }
 
     // Stampa il valore di lux
-    static char strbuf[32];
     snprintf(strbuf, sizeof(strbuf), "Light:%u LUX\r\n", (unsigned int)lux);
     UART4_WriteString(strbuf);
 
+    
+    Delayms(500);
     return (unsigned int)lux;
 }
+

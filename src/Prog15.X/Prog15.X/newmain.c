@@ -32,10 +32,22 @@
 
 // Numero di LED sulla porta A
 #define NUM_LEDS 8
+#define MAX_LUX 1800 // Valore massimo di LUX per 8 LED accesi
 
-// Soglie LUX (dal pi? luminoso al pi? buio)
-// Queste soglie sono un esempio, si possono regolare in base alle esigenze.
-static const int thresholds[NUM_LEDS] = {7000, 6000, 5000, 4000, 3000, 2000, 1000, 500};
+// Funzione per aggiornare i LED in base al valore di Lux
+void update_leds(int lux) {
+    // Calcola il numero di LED da accendere in base al valore di lux
+    int num_leds = (lux * NUM_LEDS) / MAX_LUX;
+
+    // Aggiorna i LED
+    unsigned char pattern = 0x00;
+    for (int i = 0; i < num_leds; i++) {
+        pattern |= (1 << i);  // Accende il LED corrispondente
+    }
+
+    // Imposta il pattern sui LED (porta A)
+    LATA = (LATA & 0xFF00) | pattern;
+}
 
 #define MAX_COMMAND_LENGTH 20
 static char uart_command[MAX_COMMAND_LENGTH];
@@ -52,7 +64,6 @@ void start_monitoring(void);
 void stop_monitoring(void);
 void display_last_detection(void);
 void reset_last_detection(void);
-void update_leds(int lux);
 void beep(void);
 void BTNC_Interrupt_Init(void);*/
 
@@ -88,23 +99,13 @@ int main(int argc, char** argv) {
             last_lux = lux;
             update_leds(lux);
 
-            // Calcola quanti LED accesi in base alle soglie
-            int num_leds = 0;
-            for (int i = 0; i < NUM_LEDS; i++) {
-                if (lux <= thresholds[i]) {
-                    num_leds = i + 1;
-                } else {
-                    break;
-                }
-            }
-
             // Aggiorna LCD
             cmdLCD(0x01); // Clear display
             cmdLCD(0x80); // Prima riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
             putsLCD(stringaSuLCD);
             cmdLCD(0xC0); // Seconda riga
-            snprintf(stringaSuLCD, sizeof(stringaSuLCD), "LED accesi:%d", num_leds);
+            snprintf(stringaSuLCD, sizeof(stringaSuLCD), "LED accesi:%d", (lux * NUM_LEDS) / MAX_LUX);
             putsLCD(stringaSuLCD);
 
             Delayms(500);
@@ -198,37 +199,20 @@ void reset_last_detection(void) {
     }
 }
 
-// Gestione dei LED in base alla luminosit?
-void update_leds(int lux) {
-    int num_leds = 0;
-    for (int i = 0; i < NUM_LEDS; i++) {
-        if (lux <= thresholds[i]) {
-            num_leds = i + 1;
-        } else {
-            break;
-        }
-    }
-
-    unsigned char pattern = 0x00;
-    for (int i = 0; i < num_leds; i++) {
-        pattern |= (1 << i);
-    }
-    LATA = (LATA & 0xFF00) | pattern; 
-}
-
 // Breve beep a 10kHz, 50% duty
 void beep(){ 
     OC1CONbits.ON = 1;            // Accende OC1     
     Delayms(1000);
     OC1CONbits.ON = 0; 
 }
+
 void BTNC_Interrupt_Init(void) {
     INT4R = 0x4;
     __builtin_disable_interrupts();    
     INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
 
-    // Configura priorit? e flag dell'interrupt
-    IPC4bits.INT4IP = 1;    // Imposta priorit? alta
+    // Configura priorità e flag dell'interrupt
+    IPC4bits.INT4IP = 1;    // Imposta priorità alta
     IPC4bits.INT4IS = 0;     // EXT0 sub-priority 0
     IFS0bits.INT4IF = 0;    // Pulisce il flag dell'interrupt
     
