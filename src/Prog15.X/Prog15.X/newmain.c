@@ -11,7 +11,7 @@
 #include "Audio_PMW.h"
 #include "spi.h"
 #include "Pin.h"
-#include "TSL2561.h"
+#include "TSL2561.h"                      
 
 // Configurazione FUSE del microcontrollore
 #pragma config FNOSC = FRCPLL 
@@ -56,44 +56,38 @@ volatile unsigned int last_lux = 0; // Ultima misura LUX
 volatile int monitoring = 0;        // Flag monitoraggio attivo
 
 char stringaSuLCD[16]; // Buffer per scritte su LCD
-
-/*// Prototipi funzioni
-void init_hardware(void);
-void init_menu(void);
-void start_monitoring(void);
-void stop_monitoring(void);
-void display_last_detection(void);
-void reset_last_detection(void);
-void beep(void);
-void BTNC_Interrupt_Init(void);*/
+volatile int interrupt_triggered = 0;  // Flag per indicare che l'interrupt è stato attivato
 
 
 // Interrupt INT4, salva ultimo lux su flash e ferma monitoraggio
-void __attribute__((vector(_EXTERNAL_4_VECTOR),ipl1)) ButtonInterrupt(void) {
-    
-    // Gestisci il salvataggio dei dati o l'operazione desiderata
-    if (monitoring) {
-        // Salva solo un byte (LUX limitato a 0-255)
-        //writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
-        writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));
-        stop_monitoring();
-    }
+void __attribute__((interrupt(ipl1),vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
+    LED_RGB_RED = 1;
+    LED_RGB_GREEN = 0;
+    if (monitoring)
+        interrupt_triggered = 1;  // Imposta il flag per indicare che l'interrupt è stato attivato
+    Delayms(100);
     IFS0bits.INT4IF = 0;  // Pulisce il flag dell'interrupt
 }
 
 int main(int argc, char** argv) {
     init_hardware();
-    UART4_WriteString("Test UART avviata.\r\n");
-
-    uint8_t id = TSL2561_read_id();
-    char buff[32];
-    sprintf(buff, "TSL2561 ID: 0x%02X\r\n", id);
-    UART4_WriteString(buff);
     init_menu();
-
     
     while (1) {
-        //if monitoring = 0 
+        if (interrupt_triggered) {
+            char debug_buffer[50];
+            snprintf(debug_buffer, sizeof(debug_buffer), "Interrupt Triggered. Last lux: %d\r\n", last_lux);
+            UART4_WriteString(debug_buffer);  
+    
+            // Scrive l'ultimo valore di lux nella memoria flash
+            writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));  // Byte meno significativo
+            writeFlashMem(0x01, (unsigned char)((last_lux >> 8) & 0xFF));  // Byte più significativo        
+
+            stop_monitoring();
+            
+            // Reset del flag
+            interrupt_triggered = 0;
+        }
         if (monitoring) {
             int lux = (int)TSL2561_read_lux();
             last_lux = lux;
@@ -109,13 +103,12 @@ int main(int argc, char** argv) {
             putsLCD(stringaSuLCD);
 
             Delayms(500);
-            
         }
     }
     return 0;
 }
 
-// Inizializzazione hardware
+//Inizializzazione hardware
 void init_hardware() {
     Timer2_init();
     Init_pins();
@@ -129,7 +122,11 @@ void init_hardware() {
     TSL2561_init(); // Inizializza sensore di luce
     initSPI1(); // Inizializza SPI per Flash
     
-    // LED RGB Verde all?accensione
+    char debug_buffer[50];
+    snprintf(debug_buffer, sizeof(debug_buffer), "Init hardware\n");
+    UART4_WriteString(debug_buffer);
+    
+    // LED RGB Verde all'accensione
     LED_RGB_RED = 0;
     LED_RGB_GREEN = 1;
     LED_RGB_BLUE = 0;
@@ -179,22 +176,43 @@ void stop_monitoring(void) {
 
 // Funzione 2: Visualizza ultima detezione
 void display_last_detection(void) {
-    int stored_lux = readFlashMem(0x00);
+    // Legge i due byte consecutivi dalla memoria flash
+    int low_byte = readFlashMem(0x00);         // Byte meno significativo
+    int high_byte = readFlashMem(0x01);        // Byte più significativo
+
+    // Ricostruisce il valore 16-bit
+    int stored_lux = (high_byte << 8) | low_byte;
+    
+   
+    char bufferlettura[20];
+    sprintf(bufferlettura, "LSB: %d, MSB: %d\r\n", low_byte, high_byte);
+    UART4_WriteString(bufferlettura);
+
+    // Prepara il messaggio da visualizzare
     char buffer[50];
     sprintf(buffer, "Last Light: %d LUX\r\n", stored_lux);
+
+    // Invia il messaggio tramite UART
     UART4_WriteString(buffer);
 }
 
 // Funzione 3: Reset ultima detezione
 void reset_last_detection(void) {
+    // Cancella la memoria flash
     EraseFlash();
     UART4_WriteString("Ultima detezione resettata.\r\n");
     
-    // Debugging - verifica cancellazione dei dati 
+    // Debugging - verifica che i dati siano stati cancellati
     for (int i = 0; i < 10; i++) {
-        int value = readFlashMem(i); // Legge i primi 10 indirizzi
+        int value = readFlashMem(i);  // Legge i primi 10 indirizzi
         char buffer[50];
-        sprintf(buffer, "Address %d: %d\r\n", i, value);
+        
+        // Controlla se il valore cancellato è 0xFF (default dopo cancellazione flash)
+        if (value == 0xFF) {
+            sprintf(buffer, "Address %d: %d (OK)\r\n", i, value);
+        } else {
+            sprintf(buffer, "Address %d: %d (Errore)\r\n", i, value);
+        }
         UART4_WriteString(buffer);
     }
 }
@@ -207,10 +225,9 @@ void beep(){
 }
 
 void BTNC_Interrupt_Init(void) {
-    INT4R = 0x4;
+    INT4R = 0x04;
     __builtin_disable_interrupts();    
     INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
-
     // Configura priorità e flag dell'interrupt
     IPC4bits.INT4IP = 1;    // Imposta priorità alta
     IPC4bits.INT4IS = 0;     // EXT0 sub-priority 0

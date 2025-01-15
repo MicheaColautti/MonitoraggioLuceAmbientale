@@ -95,18 +95,6 @@ int writeSPI1( int i)
     return (int)SPI1BUF; // read the received value
 }//writeSPI1
 
-int getFlashID(void)
-{
-    //get ID = 15
-    CS = 0; // select the Serial EEPROM
-    writeSPI1(0xAB); // get ID
-    writeSPI1(0);
-    writeSPI1(0);
-    writeSPI1(0);
-    writeSPI1(0); // send dummy, read data  
-    return SPI1BUF;
-    CS = 1;
-}
 
 void writeFlashMem(int addr, short byte){
     short value = 0;

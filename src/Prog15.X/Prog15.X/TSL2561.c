@@ -59,14 +59,6 @@ void TSL2561_init(void) {
     // Attendi che il sensore si accenda completamente
     Delayms(200);
 
-    // Leggi l'ID del sensore
-    uint8_t id = TSL2561_read_id();
-    if (id != 0x10 && id != 0x50) {
-        UART4_WriteString("ID sensore non valido\r\n");
-    } else {
-        UART4_WriteString("Sensore TSL2561 inizializzato correttamente\r\n");
-    }
-
     // Imposta il tempo di integrazione a 402 ms (valore 0x02)
     i2c_master_start();
     i2c_master_send(TSL2561_ADDR << 1);
@@ -102,31 +94,15 @@ uint8_t TSL2561_read_id(void) {
 // Funzione per leggere i dati di luce (lux) dal sensore
 unsigned int TSL2561_read_lux(void) {
     uint16_t CH0 = TSL2561_read_channel(TSL2561_REG_DATA0LOW, TSL2561_REG_DATA0HIGH);  // Canale 0
-    uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH);// Canale 1
+    uint16_t CH1 = TSL2561_read_channel(TSL2561_REG_DATA1LOW, TSL2561_REG_DATA1HIGH); // Canale 1
     
     if (CH0 == 0xFFFF || CH1 == 0xFFFF || CH0 > 65535 || CH1 > 65535) {
         UART4_WriteString("Sensore saturato o errore nella lettura.\r\n");
         return 0;
     }
-
-
-    // DEBUG: Stampa i valori di CH0 e CH1
-    UART4_WriteString("CH0: ");
-    static char strbuf[32];
-    snprintf(strbuf, sizeof(strbuf), "%u\r\n", CH0);
-    UART4_WriteString(strbuf);
-
-    UART4_WriteString("CH1: ");
-    snprintf(strbuf, sizeof(strbuf), "%u\r\n", CH1);
-    UART4_WriteString(strbuf);
-
+ 
     // Calcola il rapporto tra i canali e determina il valore di lux
     float ratio = (float)CH1 / (float)CH0;
-    
-    // DEBUG: Stampa il rapporto tra i canali
-    UART4_WriteString("Ratio: ");
-    snprintf(strbuf, sizeof(strbuf), "%f\r\n", ratio);
-    UART4_WriteString(strbuf);
 
     float lux = 0.0f;
 
@@ -147,11 +123,6 @@ unsigned int TSL2561_read_lux(void) {
     if (lux < 0.0f) {
         lux = 0.0f;
     }
-
-    // Stampa il valore di lux
-    snprintf(strbuf, sizeof(strbuf), "Light:%u LUX\r\n", (unsigned int)lux);
-    UART4_WriteString(strbuf);
-
     
     Delayms(500);
     return (unsigned int)lux;
