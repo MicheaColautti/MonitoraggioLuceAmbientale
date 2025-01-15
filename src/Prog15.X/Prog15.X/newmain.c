@@ -11,7 +11,17 @@
 #include "Audio_PMW.h"
 #include "spi.h"
 #include "Pin.h"
-#include "TSL2561.h"                      
+#include "TSL2561.h"    
+
+// Dichiarazioni delle funzioni
+void init_hardware(void);
+void init_menu(void);
+void start_monitoring(void);
+void stop_monitoring(void);
+void display_last_detection(void);
+void reset_last_detection(void);
+void beep(void);
+void BTNC_Interrupt_Init(void);
 
 // Configurazione FUSE del microcontrollore
 #pragma config FNOSC = FRCPLL 
@@ -60,7 +70,7 @@ volatile int interrupt_triggered = 0;  // Flag per indicare che l'interrupt è st
 
 
 // Interrupt INT4, salva ultimo lux su flash e ferma monitoraggio
-void __attribute__((interrupt(ipl1),vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
+void __attribute__((interrupt(ipl1), vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
     LED_RGB_RED = 1;
     LED_RGB_GREEN = 0;
     if (monitoring)
