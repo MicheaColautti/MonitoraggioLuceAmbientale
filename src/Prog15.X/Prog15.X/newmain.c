@@ -158,14 +158,15 @@ void init_menu(void) {
         start_monitoring();
     } else if (strcmp(uart_command, "2") == 0){
         display_last_detection();
-        init_menu();
     } else if (strcmp(uart_command, "3") == 0) {
         reset_last_detection();
-        init_menu();
     } else {
         UART4_WriteString("Errore: comando non valido\r\n");
-        init_menu();
     }
+
+    // Pulizia Buffer
+    UART4_FlushBuffer();
+    init_menu();
 }
 
 // Funzione 1: Avvio monitoraggio
