@@ -90,3 +90,12 @@ void UART4_ReadString(char* buffer, int maxLength) {
     buffer[i] = '\0';  // Termina la stringa
 }
 
+int isU4Available(void) {
+    return U4STAbits.URXDA;  // Returns 1 if data is available, 0 otherwise
+}
+
+void UART4_FlushBuffer() {
+    while (isU4Available()) {
+        getU4();  // Consume all leftover characters
+    }
+}
