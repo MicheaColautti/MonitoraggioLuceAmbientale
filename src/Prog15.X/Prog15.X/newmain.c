@@ -22,6 +22,7 @@ void display_last_detection(void);
 void reset_last_detection(void);
 void beep(void);
 void BTNC_Interrupt_Init(void);
+void update_leds(int lux);
 
 // Configurazione FUSE del microcontrollore
 #pragma config FNOSC = FRCPLL 
@@ -43,44 +44,26 @@ void BTNC_Interrupt_Init(void);
 // Numero di LED sulla porta A
 #define NUM_LEDS 8
 #define MAX_LUX 1800 // Valore massimo di LUX per 8 LED accesi
-
-// Funzione per aggiornare i LED in base al valore di Lux
-void update_leds(int lux) {
-    // Calcola il numero di LED da accendere in base al valore di lux
-    int num_leds = (lux * NUM_LEDS) / MAX_LUX;
-
-    // Aggiorna i LED
-    unsigned char pattern = 0x00;
-    for (int i = 0; i < num_leds; i++) {
-        pattern |= (1 << i);  // Accende il LED corrispondente
-    }
-
-    // Imposta il pattern sui LED (porta A)
-    LATA = (LATA & 0xFF00) | pattern;
-}
-
 #define MAX_COMMAND_LENGTH 20
 static char uart_command[MAX_COMMAND_LENGTH];
 
 volatile unsigned int last_lux = 0; // Ultima misura LUX
 volatile int monitoring = 0;        // Flag monitoraggio attivo
-
 char stringaSuLCD[16]; // Buffer per scritte su LCD
 volatile int interrupt_triggered = 0;  // Flag per indicare che l'interrupt è stato attivato
 
 
-// Interrupt INT4, salva ultimo lux su flash e ferma monitoraggio
-void __attribute__((interrupt(ipl1), vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
-    LED_RGB_RED = 1;
-    LED_RGB_GREEN = 0;
+// Interrupt INT4, imposta la flag per indicare che l'interrupt è stato attivato
+void __attribute__((interrupt(ipl1AUTO), vector(_EXTERNAL_4_VECTOR))) ButtonInterrupt(void) {
     if (monitoring)
-        interrupt_triggered = 1;  // Imposta il flag per indicare che l'interrupt è stato attivato
+        interrupt_triggered = 1;  
     Delayms(100);
     IFS0bits.INT4IF = 0;  // Pulisce il flag dell'interrupt
 }
 
 int main(int argc, char** argv) {
     init_hardware();
+    Delayms(10);
     init_menu();
     
     while (1) {
@@ -88,30 +71,29 @@ int main(int argc, char** argv) {
             char debug_buffer[50];
             snprintf(debug_buffer, sizeof(debug_buffer), "Interrupt Triggered. Last lux: %d\r\n", last_lux);
             UART4_WriteString(debug_buffer);  
-    
+            
             // Scrive l'ultimo valore di lux nella memoria flash
+            EraseFlash();
             writeFlashMem(0x00, (unsigned char)(last_lux & 0xFF));  // Byte meno significativo
             writeFlashMem(0x01, (unsigned char)((last_lux >> 8) & 0xFF));  // Byte più significativo        
 
             stop_monitoring();
-            
             // Reset del flag
             interrupt_triggered = 0;
         }
         if (monitoring) {
             int lux = (int)TSL2561_read_lux();
             last_lux = lux;
-            update_leds(lux);
-
+            update_leds(lux);  
+            
             // Aggiorna LCD
             cmdLCD(0x01); // Clear display
             cmdLCD(0x80); // Prima riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "Light:%d LUX", lux);
-            putsLCD(stringaSuLCD);
+            putsLCD(stringaSuLCD);    
             cmdLCD(0xC0); // Seconda riga
             snprintf(stringaSuLCD, sizeof(stringaSuLCD), "LED accesi:%d", (lux * NUM_LEDS) / MAX_LUX);
             putsLCD(stringaSuLCD);
-
             Delayms(500);
         }
     }
@@ -120,6 +102,8 @@ int main(int argc, char** argv) {
 
 //Inizializzazione hardware
 void init_hardware() {
+    MultiVector_mode();
+    _nop();
     Timer2_init();
     Init_pins();
     BTNC_Interrupt_Init();
@@ -131,10 +115,8 @@ void init_hardware() {
     i2c_master_setup();
     TSL2561_init(); // Inizializza sensore di luce
     initSPI1(); // Inizializza SPI per Flash
+    EraseFlash(); // cancella la memoria flash
     
-    char debug_buffer[50];
-    snprintf(debug_buffer, sizeof(debug_buffer), "Init hardware\n");
-    UART4_WriteString(debug_buffer);
     
     // LED RGB Verde all'accensione
     LED_RGB_RED = 0;
@@ -143,6 +125,15 @@ void init_hardware() {
 }
 
 
+void BTNC_Interrupt_Init(void) {
+    INT4R = 0x04;   
+    INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
+    // Configura priorità e flag dell'interrupt
+    IPC4bits.INT4IP = 1;    // Imposta priorità alta
+    IPC4bits.INT4IS = 0;     // EXT0 sub-priority 0
+    IFS0bits.INT4IF = 0;    // Pulisce il flag dell'interrupt
+    IEC0bits.INT4IE = 1;    // Abilita l'interrupt INT4
+}
 
 // Menu iniziale su UART
 void init_menu(void) {
@@ -158,15 +149,17 @@ void init_menu(void) {
         start_monitoring();
     } else if (strcmp(uart_command, "2") == 0){
         display_last_detection();
+        init_menu();
     } else if (strcmp(uart_command, "3") == 0) {
         reset_last_detection();
+        init_menu();
     } else {
         UART4_WriteString("Errore: comando non valido\r\n");
+        init_menu();
     }
 
     // Pulizia Buffer
     UART4_FlushBuffer();
-    init_menu();
 }
 
 // Funzione 1: Avvio monitoraggio
@@ -194,11 +187,6 @@ void display_last_detection(void) {
     // Ricostruisce il valore 16-bit
     int stored_lux = (high_byte << 8) | low_byte;
     
-   
-    char bufferlettura[20];
-    sprintf(bufferlettura, "LSB: %d, MSB: %d\r\n", low_byte, high_byte);
-    UART4_WriteString(bufferlettura);
-
     // Prepara il messaggio da visualizzare
     char buffer[50];
     sprintf(buffer, "Last Light: %d LUX\r\n", stored_lux);
@@ -210,22 +198,24 @@ void display_last_detection(void) {
 // Funzione 3: Reset ultima detezione
 void reset_last_detection(void) {
     // Cancella la memoria flash
+    UART4_WriteString("Inizio cancellazione flash...\r\n");
     EraseFlash();
     UART4_WriteString("Ultima detezione resettata.\r\n");
-    
-    // Debugging - verifica che i dati siano stati cancellati
-    for (int i = 0; i < 10; i++) {
-        int value = readFlashMem(i);  // Legge i primi 10 indirizzi
-        char buffer[50];
-        
-        // Controlla se il valore cancellato è 0xFF (default dopo cancellazione flash)
-        if (value == 0xFF) {
-            sprintf(buffer, "Address %d: %d (OK)\r\n", i, value);
-        } else {
-            sprintf(buffer, "Address %d: %d (Errore)\r\n", i, value);
-        }
-        UART4_WriteString(buffer);
+}
+
+// Funzione per aggiornare i LED in base al valore di Lux
+void update_leds(int lux) {
+    // Calcola il numero di LED da accendere in base al valore di lux
+    int num_leds = NUM_LEDS - (lux * NUM_LEDS) / MAX_LUX;
+
+    // Aggiorna i LED
+    unsigned char pattern = 0x00;
+    for (int i = 0; i < num_leds; i++) {
+        pattern |= (1 << i);  // Accende il LED corrispondente
     }
+
+    // Imposta il pattern sui LED (porta A)
+    LATA = (LATA & 0xFF00) | pattern;
 }
 
 // Breve beep a 10kHz, 50% duty
@@ -233,18 +223,4 @@ void beep(){
     OC1CONbits.ON = 1;            // Accende OC1     
     Delayms(1000);
     OC1CONbits.ON = 0; 
-}
-
-void BTNC_Interrupt_Init(void) {
-    INT4R = 0x04;
-    __builtin_disable_interrupts();    
-    INTCONbits.INT4EP = 0;  // Impostazione fronte di discesa
-    // Configura priorità e flag dell'interrupt
-    IPC4bits.INT4IP = 1;    // Imposta priorità alta
-    IPC4bits.INT4IS = 0;     // EXT0 sub-priority 0
-    IFS0bits.INT4IF = 0;    // Pulisce il flag dell'interrupt
-    
-    IEC0bits.INT4IE = 1;    // Abilita l'interrupt INT4
-
-    __builtin_enable_interrupts();  // Abilita gli interrupt globali
 }

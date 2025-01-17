@@ -7,4 +7,5 @@
 
 void Timer2_init(void);
 void Delayms( unsigned t);
+void MultiVector_mode(void);
 

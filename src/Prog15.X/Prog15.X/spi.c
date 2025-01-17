@@ -9,6 +9,8 @@
 #include <stdlib.h>
 
 #include "spi.h"
+#include "Uart.h"
+#include "Timer.h"
 
 void initSPI1(void)
 {
@@ -45,22 +47,17 @@ unsigned char readSPI1(void) {
 
 void EraseFlash(void)
 {
-    UART4_WriteString("Inizio cancellazione flash...\r\n");
-    
     // write enable
     CS = 0;
     writeSPI1(0x06);
     CS = 1;
     Delayms(10);
     
-    UART4_WriteString("Comando di cancellazione inviato...\r\n");
 
     // full erase command
     CS = 0;
     writeSPI1(0x60);  // Full chip erase command
     CS = 1;
-
-    UART4_WriteString("Comando di cancellazione eseguito, attendo completamento...\r\n");
     
     // Polling per attendere la fine dell'operazione di cancellazione
     CS = 0;
@@ -77,7 +74,6 @@ void EraseFlash(void)
         CS = 1;
     }
     
-    UART4_WriteString("Cancellazione completata.\r\n");
 
     // Cancellazione completata, disabilita la scrittura
     CS = 0;

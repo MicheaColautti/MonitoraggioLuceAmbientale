@@ -6,4 +6,5 @@ void putU4_string (char szData[]) ;
 void remap_UART4_pins(void);
 void UART4_WriteString(const char *str);
 void UART4_ReadString(char* buffer, int maxLength);
+void UART4_FlushBuffer(void);
 
