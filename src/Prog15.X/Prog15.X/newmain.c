@@ -63,7 +63,6 @@ void __attribute__((interrupt(ipl1AUTO), vector(_EXTERNAL_4_VECTOR))) ButtonInte
 
 int main(int argc, char** argv) {
     init_hardware();
-    Delayms(10);
     init_menu();
     
     while (1) {
