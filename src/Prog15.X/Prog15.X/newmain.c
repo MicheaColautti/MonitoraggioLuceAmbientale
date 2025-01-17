@@ -146,6 +146,7 @@ void init_menu(void) {
 
     if (strcmp(uart_command, "1") == 0) {
         start_monitoring();
+        UART4_FlushBuffer();
     } else if (strcmp(uart_command, "2") == 0){
         display_last_detection();
         UART4_FlushBuffer();
